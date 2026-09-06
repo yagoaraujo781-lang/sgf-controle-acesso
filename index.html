@@ -1,25 +1,60 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>SGF - Controle de Acesso</title>
+
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <h1>SGF - Controle de Acesso</h1>
+    <div class="container">
 
-    <h2>Controle de acesso em canteiros</h2>
+        <h1>SGF</h1>
 
-    <p>Digite o código do crachá:</p>
+        <h2>Controle de Acesso em Canteiros</h2>
 
-    <input type="text" placeholder="Ex: FUNC001">
+        <div class="card">
 
-    <button>Verificar acesso</button>
+            <h3>Check-in na Portaria</h3>
 
-    <h3>Resultado</h3>
+            <label>Código do crachá:</label>
 
-    <p>Aguardando validação...</p>
+            <input
+                type="text"
+                id="codigo"
+                placeholder="Ex: FUNC001"
+            >
+
+            <button onclick="verificarAcesso()">
+                Verificar Acesso
+            </button>
+
+            <div id="resultado"></div>
+
+        </div>
+
+
+        <div class="card">
+
+            <h3>Histórico de Acessos</h3>
+
+            <div id="historico">
+
+                <p>Nenhum acesso realizado ainda.</p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
 
 </body>
+
 </html>
