@@ -1,103 +1,138 @@
-const funcionarios = [
-    { codigo: "FUNC001", nome: "João Silva", permitido: true },
-    { codigo: "FUNC002", nome: "Maria Souza", permitido: true },
-    { codigo: "FUNC003", nome: "Carlos Lima", permitido: false }
-];
+const API_URL = 'http://localhost:3000/api';
+const form = document.getElementById('form-checkin');
+const inputCodigo = document.getElementById('input-codigo');
+const resultadoCard = document.getElementById('resultado-card');
+const tabelaHistorico = document.getElementById('tabela-historico');
+const statusConexao = document.getElementById('status-conexao');
+const btnCamera = document.getElementById('btn-camera');
+const qrReaderDiv = document.getElementById('qr-reader');
 
-let historico = [];
+const MOCK_DB = {
+  FUNC001: { nome: 'João Silva', cargo: 'Engenheiro Civil', ativo: true },
+  FUNC002: { nome: 'Maria Souza', cargo: 'Mestre de Obras', ativo: true },
+  FUNC003: { nome: 'Carlos Lima', cargo: 'Eletricista', ativo: false }
+};
 
-function verificarAcesso() {
-    const codigoInput = document.getElementById("codigo");
-    const codigo = codigoInput.value.toUpperCase().trim();
-    const resultado = document.getElementById("resultado");
-    
-    if (!codigo) {
-        resultado.innerHTML = `<div class="negado">⚠️ Digite ou escaneie o código do crachá.</div>`;
-        return;
+let apiOnline = false;
+let html5QrCode = null;
+let cameraAtiva = false;
+
+async function checarApi() {
+  try {
+    const res = await fetch(`${API_URL}/historico`);
+    if (res.ok) {
+      apiOnline = true;
+      statusConexao.textContent = 'API Backend + Banco 3FN Conectados';
+      statusConexao.className = 'badge-online';
+      const rows = await res.json();
+      tabelaHistorico.innerHTML = '';
+      rows.reverse().forEach((r) => {
+        adicionarLinhaTabela(
+          new Date(r.data_hora).toLocaleTimeString('pt-BR'),
+          r.codigo_cracha_lido,
+          r.nome,
+          r.resultado,
+          r.motivo_ocorrencia
+        );
+      });
     }
+  } catch {
+    apiOnline = false;
+    statusConexao.textContent = 'Modo Local (Fallback sem Backend)';
+    statusConexao.className = 'badge-offline';
+  }
+}
 
-    const funcionario = funcionarios.find(p => p.codigo === codigo);
+async function processarCheckin(codigoBruto) {
+  const codigo = codigoBruto.trim().toUpperCase();
+  if (!codigo) return;
 
-    if (!funcionario) {
-        resultado.innerHTML = `<div class="negado">❌ Crachá não encontrado.</div>`;
-        adicionarHistorico("Desconhecido", codigo, "NEGADO");
-        return;
-    }
-
-    if (funcionario.permitido) {
-        resultado.innerHTML = `
-            <div class="autorizado">
-                <strong>✅ ACESSO AUTORIZADO</strong>
-                <br><br>
-                Funcionário: ${funcionario.nome}
-                <br>
-                Crachá: ${funcionario.codigo}
-            </div>
-        `;
-        adicionarHistorico(funcionario.nome, funcionario.codigo, "AUTORIZADO");
+  if (apiOnline) {
+    const res = await fetch(`${API_URL}/checkin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo })
+    });
+    const dados = await res.json();
+    exibirFeedback(dados.resultado, `${dados.nome} (${dados.cargo}) — ${dados.motivo}`);
+    adicionarLinhaTabela(dados.data_hora, dados.codigo, dados.nome, dados.resultado, dados.motivo);
+  } else {
+    const func = MOCK_DB[codigo];
+    const hora = new Date().toLocaleTimeString('pt-BR');
+    if (func && func.ativo) {
+      exibirFeedback('AUTORIZADO', `${func.nome} (${func.cargo}) — Acesso liberado.`);
+      adicionarLinhaTabela(hora, codigo, func.nome, 'AUTORIZADO', 'Validado localmente');
     } else {
-        resultado.innerHTML = `
-            <div class="negado">
-                <strong>❌ ACESSO NEGADO</strong>
-                <br><br>
-                Funcionário: ${funcionario.nome}
-                <br>
-                Motivo: sem permissão de acesso.
-            </div>
-        `;
-        adicionarHistorico(funcionario.nome, funcionario.codigo, "NEGADO");
+      const motivo = func ? 'Crachá suspenso.' : 'Crachá não encontrado.';
+      exibirFeedback('NEGADO', `${func ? func.nome : 'Desconhecido'} — ${motivo}`);
+      adicionarLinhaTabela(hora, codigo, func ? func.nome : 'Desconhecido', 'NEGADO', motivo);
     }
-    
-    // Limpa o input e mantém o foco para o próximo crachá
-    codigoInput.value = "";
-    codigoInput.focus();
+  }
+
+  inputCodigo.value = '';
+  inputCodigo.focus();
 }
 
-function adicionarHistorico(nome, codigo, status) {
-    const agora = new Date();
-    const horario = agora.toLocaleTimeString("pt-BR");
-    historico.unshift({ nome, codigo, status, horario }); // Adiciona no topo
-    atualizarHistorico();
+function exibirFeedback(status, mensagem) {
+  resultadoCard.textContent = `${status}: ${mensagem}`;
+  resultadoCard.className = `resultado ${status === 'AUTORIZADO' ? 'autorizado' : 'negado'}`;
 }
 
-function atualizarHistorico() {
-    const historicoDiv = document.getElementById("historico");
+function adicionarLinhaTabela(hora, codigo, nome, status, obs) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${hora}</td>
+    <td><strong>${codigo}</strong></td>
+    <td>${nome}</td>
+    <td style="color: ${status === 'AUTORIZADO' ? '#166534' : '#991b1b'}; font-weight: 700;">${status}</td>
+    <td>${obs}</td>
+  `;
+  tabelaHistorico.prepend(tr);
+}
 
-    if (historico.length === 0) {
-        historicoDiv.innerHTML = "<p>Nenhum acesso realizado ainda.</p>";
-        return;
+btnCamera.addEventListener('click', async () => {
+  if (!cameraAtiva) {
+    qrReaderDiv.style.display = 'block';
+    html5QrCode = new Html5Qrcode('qr-reader');
+    try {
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          processarCheckin(decodedText);
+          html5QrCode.pause(true);
+          setTimeout(() => html5QrCode.resume(), 2000);
+        }
+      );
+      cameraAtiva = true;
+      btnCamera.textContent = 'Desativar Câmera';
+    } catch (err) {
+      alert('Não foi possível acessar a câmera: ' + err);
+      qrReaderDiv.style.display = 'none';
     }
-
-    historicoDiv.innerHTML = historico.map(a => `
-        <div class="acesso">
-            <strong>${a.nome}</strong> - ${a.codigo} - 
-            <span style="color: ${a.status === 'AUTORIZADO' ? '#166534' : '#991b1b'}; font-weight: bold;">${a.status}</span> 
-            - ${a.horario}
-        </div>
-    `).join("");
-}
-
-// === ATALHOS DE TECLADO AUTOMATIZADOS ===
-document.addEventListener("DOMContentLoaded", () => {
-    const inputCodigo = document.getElementById("codigo");
-    
-    // Foca automaticamente no input ao abrir a página
-    inputCodigo.focus();
-
-    inputCodigo.addEventListener("keydown", function(event) {
-        // Atalho: Enter dispara a verificação de acesso
-        if (event.key === "Enter") {
-            event.preventDefault();
-            verificarAcesso();
-        }
-    });
-
-    // Atalho global: Tecla ESC limpa o campo de entrada e o resultado atual
-    document.addEventListener("keydown", function(event) {
-        if (event.key === "Escape") {
-            inputCodigo.value = "";
-            document.getElementById("resultado").innerHTML = "";
-            inputCodigo.focus();
-        }
-    });
+  } else {
+    await html5QrCode.stop();
+    qrReaderDiv.style.display = 'none';
+    cameraAtiva = false;
+    btnCamera.textContent = 'Ativar Câmera QR Code';
+  }
 });
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  processarCheckin(inputCodigo.value);
+});
+
+document.getElementById('btn-limpar').addEventListener('click', () => {
+  inputCodigo.value = '';
+  resultadoCard.className = 'resultado oculto';
+  inputCodigo.focus();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('btn-limpar').click();
+  }
+});
+
+checarApi();
