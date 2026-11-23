@@ -1,32 +1,59 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SGF - Controle de Acesso</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SGF – Controle de Acesso em Canteiros</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>SGF</h1>
-        <h2>Controle de Acesso em Canteiros</h2>
-        <div class="card">
-            <h3>Check-in na Portaria</h3>
-            <p style="font-size: 13px; color: #666; margin-top: -5px;">
-                <em>Dica: Pressione <b>Enter</b> para verificar o crachá ou <b>Esc</b> para limpar.</em>
-            </p>
-            <label>Código do crachá:</label>
-            <input type="text" id="codigo" placeholder="Ex: FUNC001" autocomplete="off">
-            <button onclick="verificarAcesso()">Verificar Acesso (Enter)</button>
-            <div id="resultado"></div>
-        </div>
-        <div class="card">
-            <h3>Histórico de Acessos</h3>
-            <div id="historico">
-                <p>Nenhum acesso realizado ainda.</p>
-            </div>
-        </div>
-    </div>
-    <script src="script.js"></script>
+  <main class="container">
+    <header>
+      <h1>SGF – Portaria de Canteiro de Obras</h1>
+      <span id="status-conexao" class="badge-offline">Verificando API...</span>
+    </header>
+
+    <section class="card">
+      <h2>Leitura de Crachá (QR Code ou Código)</h2>
+
+      <div class="camera-controls">
+        <button type="button" id="btn-camera" class="btn-secondary">Ativar Câmera QR Code</button>
+      </div>
+      <div id="qr-reader" style="display: none;"></div>
+
+      <form id="form-checkin">
+        <input
+          type="text"
+          id="input-codigo"
+          placeholder="Leia o QR Code ou digite (ex: FUNC001, FUNC002, FUNC003)"
+          autocomplete="off"
+          autofocus
+        />
+        <button type="submit" class="btn-primary">Validar Acesso (Enter)</button>
+        <button type="button" id="btn-limpar" class="btn-clear">Limpar (Esc)</button>
+      </form>
+
+      <div id="resultado-card" class="resultado oculto"></div>
+    </section>
+
+    <section class="card">
+      <h2>Histórico de Movimentações</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Crachá</th>
+            <th>Colaborador</th>
+            <th>Status</th>
+            <th>Observação</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-historico"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
 </body>
 </html>
